@@ -1,6 +1,7 @@
+# data_collect/stock_data_fetcher.py
 import os
+import pandas as pd
 import yfinance as yf
-
 
 class StockDataCollector:
     """
@@ -40,6 +41,9 @@ class StockDataCollector:
                 if df.empty:
                     print(f"[Warn] No price data fetched for {ticker}.")
                     continue
+                # -- 비거래일 처리: 비즈니스데이 기준 리샘플, 결측치는 전일 종가로 보간 --
+                df.index = pd.to_datetime(df.index)
+                df = df.resample('B').ffill()
                 df = df.reset_index()[["Date", "Close", "Volume"]]
                 df.to_csv(file_path, index=False)
                 print(f"[Saved] {file_path}")
