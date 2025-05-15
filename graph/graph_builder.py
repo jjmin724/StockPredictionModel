@@ -5,6 +5,7 @@ from statsmodels.tsa.stattools import grangercausalitytests
 from torch_geometric.data import HeteroData
 from core.utils import load_json, save_json
 from data.data_utils import build_event_table
+import os
 
 class GraphBuilder:
     def __init__(self, cfg):
@@ -73,9 +74,10 @@ class GraphBuilder:
         except:
             pass
         # 거시지표 연속 시계열 및 이벤트 추출
+        macro_dir = os.path.join(self.cfg['data']['root'], "macro")
         macro_series, events = build_event_table(
             self.cfg['data']['macro_list'],
-            self.cfg['data']['root'],
+            macro_dir,
             self.cfg['graph']['shock_lambda']
         )
         macro_names = list(macro_series.keys()) if macro_series else []
