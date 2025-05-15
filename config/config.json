@@ -11,7 +11,13 @@
     "corr_thr": 0.6,
     "dtw_k": 10,
     "granger_p": 0.05,
-    "shock_lambda": 0.15
+    "shock_lambda": 0.15,
+
+    "financial_feat_file": "./data/financial_features.json",
+    "wiki_text_file": "./data/wiki_texts.json",
+    "wiki_sim_thr": 0.8,
+    "wiki_sim_top_pct": null,
+    "wiki_edge_type": "weight"
   },
   "model": {
     "in_dim": 64,
