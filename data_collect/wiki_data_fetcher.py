@@ -1,3 +1,4 @@
+# data_collect/wiki_data_fetcher.py
 import os
 import json
 import yfinance as yf
@@ -58,12 +59,15 @@ class WikiDataCollector:
                     print(f"[Warn] {company} 모호, '{e.options[0]}' 사용")
                 except Exception as e2:
                     print(f"[Error] Wiki fail for {company}: {e2}")
+                    result[ticker] = ""
             except wikipedia.exceptions.PageError:
                 print(f"[Warn] No wiki page for {company}.")
+                result[ticker] = ""
             except Exception as e:
-                print(f"[Error] Wikipedia fetch failed: {e}")
+                print(f"[Error] Wikipedia fetch failed for {company}: {e}")
+                result[ticker] = ""
 
-        # 저장
+        # 저장: 누락된 항목에는 빈 문자열로 저장하여 모든 티커 키가 존재하도록 함
         with open(self.out_file, "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
         print(f"[Saved] {self.out_file}")
