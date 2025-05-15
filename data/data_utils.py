@@ -1,5 +1,6 @@
-from core.utils import ensure_dir
+from core.utils import ensure_dir, load_json
 import pandas as pd, numpy as np, os, yfinance as yf
+import torch
 
 def fetch_raw(tickers, start="2018-01-01", end="2023-12-31", out_dir="./data/raw"):
     ensure_dir(out_dir)
@@ -76,3 +77,33 @@ def build_event_table(macro_list, raw_dir, threshold):
                     shock_weight = shock_weight / threshold
                 events.append({"macro": m, "shock": float(shock_weight)})
     return macro_series, events
+
+def load_pretrain_dataset(cfg):
+    feat_path = os.path.join(cfg["data"]["processed"], "features.parquet")
+    df = pd.read_parquet(feat_path)
+    label_path = os.path.join(cfg["data"]["processed"], "labels.json")
+    label_map = load_json(label_path)
+    # 모든 티커를 정렬된 순서로 가져옴
+    tickers = sorted(df['ticker'].unique().tolist())
+    seqs = []
+    labels = []
+    for t in tickers:
+        df_t = df[df.ticker == t]
+        seq = df_t[['ret_z', 'vol_z']].values
+        if len(seq) == 0:
+            continue
+        seqs.append(seq)
+        labels.append(label_map.get(t, 0.0))
+    if not seqs:
+        return torch.empty(0), torch.empty(0)
+    # 길이가 다른 시계열 패딩 (앞쪽을 0으로 채움)
+    max_len = max(len(s) for s in seqs)
+    padded = []
+    for s in seqs:
+        if len(s) < max_len:
+            pad = np.zeros((max_len - len(s), s.shape[1]))
+            s = np.vstack([pad, s])
+        padded.append(s)
+    X_seq = torch.tensor(np.array(padded), dtype=torch.float)
+    y = torch.tensor(labels, dtype=torch.float)
+    return X_seq, y
