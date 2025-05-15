@@ -1,43 +1,30 @@
 {
   "seed": 42,
   "device": "cuda:0",
-
   "data": {
     "root": "./data/raw",
     "processed": "./data/processed",
     "macro_list": ["CPI","FED_FUNDS","PPI","GDP","DXY"]
   },
-
   "graph": {
     "corr_thr": 0.6,
     "dtw_k": 10,
     "granger_p": 0.05,
     "shock_lambda": 0.15
   },
-
   "model": {
     "in_dim": 64,
     "hid_dim": 128,
     "heads": 2,
     "dropout": 0.3
   },
-
   "train": {
     "epochs": 150,
-    "batch_size": 32,
+    "batch_days": 1,
     "lr": 3e-4,
     "weight_decay": 1e-4,
     "warmup_pct": 0.1,
     "patience": 20
   },
-
-  "pretrain": {
-    "mode": "graphcl",
-    "epochs": 100,
-    "proj_dim": 128,
-    "augment_strength": 0.2,
-    "save_path": "checkpoints/graphcl_encoder.pt"
-  },
-
   "artifacts_dir": "./artifacts"
 }
