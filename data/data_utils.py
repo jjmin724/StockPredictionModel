@@ -1,10 +1,5 @@
-"""
-- fetch_raw():  Yahoo Finance/API → csv 저장
-- build_features():  pct_change · z-score · forward-fill
-- build_event_table():  macro shock table
-"""
 from core.utils import ensure_dir
-import pandas as pd, numpy as np, yfinance as yf, datetime as dt
+import pandas as pd, numpy as np, os, yfinance as yf
 
 def fetch_raw(tickers, start="2018-01-01", end="2023-12-31", out_dir="./data/raw"):
     ensure_dir(out_dir)
@@ -14,14 +9,70 @@ def fetch_raw(tickers, start="2018-01-01", end="2023-12-31", out_dir="./data/raw
     print(f"Downloaded {len(tickers)} tickers.")
 
 def build_features(raw_dir, out_path):
+    ensure_dir(os.path.dirname(out_path))
     frames = []
+    label_map = {}
     for csv in os.listdir(raw_dir):
         df = pd.read_csv(f"{raw_dir}/{csv}", parse_dates=['Date'])
-        df['ticker'] = csv[:-4]
-        frames.append(df[['Date','Close','Volume','ticker']])
-    df = pd.concat(frames)
-    df['ret'] = df.groupby('ticker')['Close'].pct_change()
-    df['ret_z'] = df.groupby('ticker')['ret'].transform(lambda x:(x-x.mean())/x.std())
-    df['vol_z'] = df.groupby('ticker')['Volume'].transform(lambda x:(x-x.mean())/x.std())
-    df = df.dropna()
-    df.to_parquet(out_path)
+        df.sort_values('Date', inplace=True)
+        ticker = csv[:-4]
+        if len(df) >= 2:
+            # 마지막 행의 종가로 다음날 수익률 레이블 계산
+            last_close = df.iloc[-1]['Close']; prev_close = df.iloc[-2]['Close']
+            ret_last = (last_close / prev_close - 1)
+            label_map[ticker] = float(ret_last)
+        # 레이블로 사용된 마지막 행 제거 (학습 입력에서 제외)
+        df = df.iloc[:-1]
+        df['ticker'] = ticker
+        if not df.empty:
+            frames.append(df[['Date', 'Close', 'Volume', 'ticker']])
+    df_all = pd.concat(frames)
+    # 일일 수익률과 표준화된 수익률/거래량 특징 생성
+    df_all['ret'] = df_all.groupby('ticker')['Close'].pct_change()
+    df_all['ret_z'] = df_all.groupby('ticker')['ret'].transform(lambda x: (x - x.mean())/x.std())
+    df_all['vol_z'] = df_all.groupby('ticker')['Volume'].transform(lambda x: (x - x.mean())/x.std())
+    df_all = df_all.dropna()
+    df_all.to_parquet(out_path)
+    # 각 주식 티커의 레이블(다음날 수익률) 저장
+    label_path = os.path.join(os.path.dirname(out_path), "labels.json")
+    from core.utils import save_json
+    save_json(label_map, label_path)
+
+def build_event_table(macro_list, raw_dir, threshold):
+    events = []
+    macro_series = {}
+    for m in macro_list:
+        file_path = f"{raw_dir}/{m}.csv"
+        if not os.path.exists(file_path):
+            continue
+        df_m = pd.read_csv(file_path, parse_dates=['Date'])
+        df_m.sort_values('Date', inplace=True)
+        if len(df_m) < 2:
+            continue
+        # 데이터 간격 확인 (일간/주간/월간 등)
+        median_gap = (df_m['Date'].diff().dt.days.dropna().median())
+        freq_days = median_gap if pd.notna(median_gap) else None
+        if freq_days is not None and freq_days <= 7:
+            # 일간 또는 주간 지표 -> 비즈니스 데이 기준 일일 시계열로 변환
+            df_idx = df_m.set_index('Date')
+            if freq_days > 1:
+                df_idx = df_idx.resample('B').interpolate()  # 주간 지표 일일 보간
+            if 'Close' in df_idx.columns:
+                series_val = df_idx['Close']
+            else:
+                series_val = df_idx[df_idx.columns[0]]
+            series_ret = series_val.pct_change().fillna(0)
+            macro_series[m] = series_ret
+        else:
+            # 저주기 이벤트 지표 (월간/분기 발표 등) -> 이벤트 노드 생성
+            if 'Close' in df_m.columns:
+                values = df_m['Close'].values
+            else:
+                values = df_m[df_m.columns[1]].values
+            for i in range(1, len(values)):
+                change = (values[i] - values[i-1]) / (values[i-1] + 1e-9)
+                shock_weight = change
+                if threshold:
+                    shock_weight = shock_weight / threshold
+                events.append({"macro": m, "shock": float(shock_weight)})
+    return macro_series, events
