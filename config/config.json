@@ -4,7 +4,8 @@
   "data": {
     "root": "./data/raw",
     "processed": "./data/processed",
-    "macro_list": ["CPI","FED_FUNDS","PPI","GDP","DXY"]
+    "macro_list": ["CPI", "FED_FUNDS", "PPI", "GDP", "DXY"],
+    "window": 60
   },
   "graph": {
     "corr_thr": 0.6,
