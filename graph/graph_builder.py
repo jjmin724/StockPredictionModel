@@ -6,6 +6,8 @@ from torch_geometric.data import HeteroData
 from core.utils import load_json, save_json
 from data.data_utils import build_event_table
 import os
+from graph.wiki_integrator import WikiGraphIntegrator
+from graph.financial_integrator import FinancialFeatureIntegrator
 
 class GraphBuilder:
     def __init__(self, cfg):
@@ -33,7 +35,7 @@ class GraphBuilder:
         for i in range(N):
             idx = np.argsort(dist_mat[i])[:k+1]  # 자기 자신 포함
             for j in idx:
-                if i == j: 
+                if i == j:
                     continue
                 edges.append([i, j])
                 attrs.append(1.0/(dist_mat[i, j] + 1e-6))
@@ -44,10 +46,10 @@ class GraphBuilder:
         edges = []
         for i in range(N):
             for j in range(N):
-                if i == j: 
+                if i == j:
                     continue
                 gtest = grangercausalitytests(np.vstack([series[j], series[i]]).T,
-                                              maxlag=maxlag, verbose=False)
+                                               maxlag=maxlag, verbose=False)
                 pvals = [gtest[L][0]['ssr_chi2test'][1] for L in range(1, maxlag+1)]
                 if min(pvals) < p_thr:
                     edges.append([i, j])
@@ -132,7 +134,16 @@ class GraphBuilder:
         e_gr, w_gr = self.granger_edges(series, p_thr=self.cfg['graph']['granger_p'])
         data['stock', 'granger', 'stock'].edge_index = e_gr
         data['stock', 'granger', 'stock'].edge_attr = w_gr
-        # (Optional) 산업 기반 엣지 추가 가능 (예: 동일 섹터 주식 간 edges)
+        # 위키백과 기반 유사도 엣지 추가 (TF-IDF 기반 코사인 유사도)
+        wiki_file = self.cfg['graph'].get('wiki_text_file')
+        wiki_thr = self.cfg['graph'].get('wiki_sim_thr', None)
+        wiki_top_pct = self.cfg['graph'].get('wiki_sim_top_pct', None)
+        if wiki_file and os.path.exists(wiki_file):
+            wgi = WikiGraphIntegrator(wiki_file, thr=wiki_thr, top_pct=wiki_top_pct)
+            wiki_edges, wiki_weights = wgi.compute_edges(tickers)
+            if wiki_edges:
+                data['stock', 'wiki', 'stock'].edge_index = torch.tensor(wiki_edges).t().contiguous()
+                data['stock', 'wiki', 'stock'].edge_attr = torch.tensor(wiki_weights, dtype=torch.float).unsqueeze(-1)
         # 거시지표 (연속형) -> 주식 엣지 (기술적 유사도: 상관계수 활용)
         if macro_names:
             stock_series = {t: df[df.ticker == t].set_index('Date')['ret'] for t in tickers}
@@ -158,6 +169,15 @@ class GraphBuilder:
                     event_weights.append(events[ei]['shock'])
             data['event', 'shock', 'stock'].edge_index = torch.tensor(event_edges).t().contiguous()
             data['event', 'shock', 'stock'].edge_attr = torch.tensor(event_weights, dtype=torch.float).unsqueeze(-1)
+        # 주식 노드 재무 특징 추가
+        fin_file = self.cfg['graph'].get('financial_feat_file')
+        if fin_file and os.path.exists(fin_file):
+            ffi = FinancialFeatureIntegrator(fin_file)
+            fin_feat_tensor = ffi.get_features(tickers)
+            if hasattr(data['stock'], 'x'):
+                data['stock'].x = torch.cat([data['stock'].x, fin_feat_tensor], dim=1)
+            else:
+                data['stock'].x = fin_feat_tensor
         # 그래프 데이터 저장
         torch.save(data, out_path)
         save_json({'ticker2id': mapping}, out_path.replace('.pt', '.json'))
