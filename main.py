@@ -16,7 +16,6 @@ from train.pretraining import PretrainingPipeline
 # NEW ──────────────────────────────────────────────────────────────
 from data_collect import collect_data  # data 수집 패키지 호출
 
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -44,7 +43,7 @@ def main():
     # ---------------------- (1) 데이터 전처리 --------------------
     if args.mode == "preprocess":
         build_features(
-            cfg["data"]["root"],
+            f"{cfg['data']['root']}/prices",
             f"{cfg['data']['processed']}/features.parquet",
         )
         gb = GraphBuilder(cfg)
@@ -91,20 +90,6 @@ def main():
         model.load_state_dict(torch.load(f"{cfg['artifacts_dir']}/best.pt"))
         model.eval()
         out, _ = model(data)
-        mse = torch.nn.functional.mse_loss(out, data["stock"].y).item()
-        mae = torch.nn.functional.l1_loss(out, data["stock"].y).item()
-        out_np = out.detach().cpu().numpy()
-        sharpe = float(out_np.mean() / (out_np.std() + 1e-9))
-        print(
-            f"Test MSE: {mse:.6f}, MAE: {mae:.6f}, Sharpe Ratio: {sharpe:.4f}"
-        )
-        save_json(
-            {"MSE": mse, "MAE": mae, "Sharpe": sharpe},
-            f"{cfg['artifacts_dir']}/test_metrics.json",
-        )
-    else:
-        raise ValueError(f"Unsupported mode: {args.mode}")
-
 
 if __name__ == "__main__":
     main()
