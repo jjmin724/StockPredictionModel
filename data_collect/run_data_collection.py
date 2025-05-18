@@ -9,7 +9,7 @@ import json
 
 from .stock_data_fetcher import StockDataCollector
 from .wiki_data_fetcher import WikiDataCollector
-from .macro_data_fetcher import MacroDataCollector
+from .collect_macro import MacroDataCollector
 from .financial_data_processor import FinancialDataProcessor
 
 def _load_tickers():
