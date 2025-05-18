@@ -1,0 +1,11 @@
+numpy
+pandas
+torch
+torch-geometric
+pandas-datareader
+yfinance
+wikipedia
+scipy
+statsmodels
+fastdtw
+scikit-learn
