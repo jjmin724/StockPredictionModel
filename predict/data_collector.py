@@ -2,7 +2,7 @@
 import os
 from core.utils import load_json
 from data_collect.stock_data_fetcher import StockDataCollector
-from data_collect.macro_data_fetcher import MacroDataCollector
+from data_collect.collect_macro import MacroDataCollector
 
 class PredictDataCollector:
     """
