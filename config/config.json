@@ -2,7 +2,7 @@
   "seed": 42,
   "device": "cuda:0",
   "data": {
-    "root": "./data/raw",
+    "root": "./data/raw/prices",
     "processed": "./data/processed",
     "macro_list": ["CPIAUCSL", "FEDFUNDS", "PPIACO", "GDP", "DXY"],
     "window": 60
@@ -12,7 +12,6 @@
     "dtw_k": 10,
     "granger_p": 0.05,
     "shock_lambda": 0.15,
-
     "financial_feat_file": "./data/financial_features.json",
     "wiki_text_file": "./data/wiki_texts.json",
     "wiki_sim_thr": 0.8,
