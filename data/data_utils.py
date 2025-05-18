@@ -43,19 +43,21 @@ def build_event_table(macro_list, raw_dir, threshold):
     events = []
     macro_series = {}
     for m in macro_list:
-        file_path = f"{raw_dir}/{m}.csv"
+        file_path = f"{raw_dir}/{m}.json"
         if not os.path.exists(file_path):
             continue
-        df_m = pd.read_csv(file_path, parse_dates=['Date'])
-        df_m.sort_values('Date', inplace=True)
+        data = load_json(file_path)
+        df_m = pd.DataFrame(data)
         if len(df_m) < 2:
             continue
         # 데이터 간격 확인 (일간/주간/월간 등)
-        median_gap = (df_m['Date'].diff().dt.days.dropna().median())
+        df_m['date'] = pd.to_datetime(df_m['date'])
+        df_m.sort_values('date', inplace=True)
+        median_gap = (df_m['date'].diff().dt.days.dropna().median())
         freq_days = median_gap if pd.notna(median_gap) else None
         if freq_days is not None and freq_days <= 7:
             # 일간 또는 주간 지표 -> 비즈니스 데이 기준 일일 시계열로 변환
-            df_idx = df_m.set_index('Date')
+            df_idx = df_m.set_index('date')
             if freq_days > 1:
                 df_idx = df_idx.resample('B').interpolate()  # 주간 지표 일일 보간
             if 'Close' in df_idx.columns:
