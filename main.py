@@ -43,7 +43,7 @@ def main():
     # ---------------------- (1) 데이터 전처리 --------------------
     if args.mode == "preprocess":
         build_features(
-            f"{cfg['data']['root']}/prices",
+            cfg['data']['root'],  # 수정: 중복된 '/prices' 제거
             f"{cfg['data']['processed']}/features.parquet",
         )
         gb = GraphBuilder(cfg)
@@ -90,6 +90,3 @@ def main():
         model.load_state_dict(torch.load(f"{cfg['artifacts_dir']}/best.pt"))
         model.eval()
         out, _ = model(data)
-
-if __name__ == "__main__":
-    main()
