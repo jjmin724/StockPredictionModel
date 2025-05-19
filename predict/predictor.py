@@ -49,7 +49,7 @@ class StockPredictor:
         predictions = {}
         # 각 주식의 마지막 종가에 예측 수익률 반영
         for node_id, ticker in inv_map.items():
-            price_file = f"{self.cfg['data']['root']}/prices/{ticker}.csv"
+            price_file = f"{self.cfg['data']['root']}/{ticker}.csv"  # 수정: '/prices' 제거
             if os.path.exists(price_file):
                 df = pd.read_csv(price_file)
                 if not df.empty:
